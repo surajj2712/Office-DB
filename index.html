@@ -1,0 +1,402 @@
+    <!DOCTYPE html>
+    <html>
+        <head>
+        <title>Office DB App</title>
+        <style>
+            body {
+                font-family: Arial;
+                background: #f5f6fa;
+                margin: 0;
+                padding: 20px;
+            }
+
+            h2 {
+                margin-bottom: 10px;
+            }
+            .modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .modal-box {
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                width: 300px;
+                text-align: center;
+            }
+ 
+            .modal-actions {
+                margin-top: 15px;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .btn {
+                padding: 8px 15px;
+                border: none;
+                cursor: pointer;
+            }
+
+            .btn.danger {
+                background: red;
+                color: white;
+            }
+
+            .container {
+                max-width: 700px;
+                margin: auto;
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+
+            input {
+                padding: 10px;
+                margin: 5px;
+                width: 40%;
+                border-radius: 5px;
+                border: 1px solid #ccc;
+            }
+
+            button {
+                padding: 10px 15px;
+                border: none;
+                background: #2f80ed;
+                color: white;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background: #1c5fd1;
+            }
+
+            .delete-btn {
+                background: red;
+                margin-left: 10px;
+            }
+
+            .list {
+                margin-top: 20px;
+            }
+            
+            #toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #333;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 5px;
+                opacity: 0;
+                transform: translateY(-20px);
+                transition: all 0.3s ease;
+                z-index: 1000;
+            }
+
+            #toast.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            #toast.success {
+                background: #2ecc71;
+            }
+
+            #toast.error {
+                background: #e74c3c;
+            }
+
+            .employee {
+                display: flex;
+                justify-content: space-between;
+                background: #f1f2f6;
+                padding: 10px;
+                margin-top: 5px;
+                border-radius: 5px;
+            }
+            .modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .modal-content {
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                width: 300px;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .status {
+                margin-top: 10px;
+                font-weight: bold;
+            }
+            .employee:hover {
+                transform: scale(1.01);
+                transition: 0.2s;
+            }
+
+            .success { color: green; }
+            .error { color: red; }
+        </style>
+    </head>
+
+    <body>
+    <div id="toast"></div>
+
+    <div class="container">
+        <h2>Add Employee</h2>
+
+        <input id="name" placeholder="Enter Name">
+        <input id="email" placeholder="Enter Email">
+        <button onclick="addEmployee()">Add</button>
+
+        
+
+        <h2>Employee List &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;  <button onclick="loadEmployees()">Refresh</button> </h2> 
+
+        <div class="list" id="list"></div>
+
+    </div>
+
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+        <h3>Edit Employee</h3>
+
+        <input type="text" id="editName" placeholder="Name">
+        <input type="email" id="editEmail" placeholder="Email">
+
+        <div class="modal-buttons">
+            <button onclick="updateEmployee()">Update</button>
+            <button onclick="closeEditModal()">Cancel</button>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:3000";
+
+        // LOAD EMPLOYEES
+        async function loadEmployees() {
+            const list = document.getElementById("list");
+            list.innerHTML = "Loading...";
+
+            try {
+                const res = await fetch(`${API}/employees`);
+                const data = await res.json();
+
+                console.log("👀 Employees:", data);
+
+                list.innerHTML = "";
+
+                if (data.length === 0) {
+                    list.innerHTML = "No employees found";
+                    return;
+                }
+
+                data.forEach(emp => {
+                    const div = document.createElement("div");
+                    div.className = "employee";
+
+                    div.innerHTML = `
+                        <span>${emp.name} (${emp.email})</span>
+                        <div>
+                            <button onclick="openEditModal(${emp.id}, \`${emp.name}\`, \`${emp.email}\`)">✏️</button>
+                            <button class="delete-btn" onclick="openDeleteModal(${emp.id})">🗑</button>
+                        </div>
+                    `;
+
+                    list.appendChild(div);
+                });
+
+            } catch (err) {
+                console.error(err);
+                list.innerHTML = "Error loading data";
+            }
+        }
+        // ADD EMPLOYEE
+        async function addEmployee() {
+            const name = document.getElementById("name").value;
+            const email = document.getElementById("email").value;
+            const status = document.getElementById("status");
+
+            if (!name || !email) {
+               // status.innerHTML = "⚠️ Fill all fields";
+               // status.className = "status error";
+                showToast("⚠️ Fill all fields", "error");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/add`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email })
+                });
+
+                const msg = await res.text();
+
+                showToast("Employee Added ✅", "success");
+
+                
+                document.getElementById("name").value = "";
+                document.getElementById("email").value = "";
+
+                loadEmployees(); // auto refresh
+
+            } catch (err) {
+               showToast("Error adding employee ❌", "error");
+            }
+        }
+
+        // DELETE EMPLOYEE
+        async function deleteEmployee(id) {
+            try {
+                await fetch(`${API}/delete/${id}`, {
+                    method: "DELETE"
+                });
+            showToast("Employee Deleted ✅", "success");
+
+                loadEmployees();
+
+            } catch (err) {
+                showToast("Error deleting employee ❌", "error");
+            }
+        }
+
+        // AUTO LOAD ON START
+        loadEmployees();
+        function showToast(message, type = "success") {
+            const toast = document.getElementById("toast");
+
+            toast.innerText = message;
+            toast.className = `show ${type}`;
+
+            setTimeout(() => {
+                toast.className = "";
+            }, 3000);
+        }
+        let deleteId = null;
+
+        function openDeleteModal(id) {
+            deleteId = id;
+            document.getElementById("confirmModal").classList.remove("hidden");
+        }
+
+        function closeModal() {
+            deleteId = null;
+            document.getElementById("confirmModal").classList.add("hidden");
+        }
+
+        async function confirmDelete() {
+            if (!deleteId) return;
+
+            try {
+                const res = await fetch(`http://localhost:3000/delete/${deleteId}`, {
+                    method: "DELETE"
+                });
+
+                const msg = await res.text();
+
+                if (res.ok) {
+                    showToast("Deleted successfully 🗑️", "success");
+                } else {
+                    showToast(msg || "Delete failed ❌", "error");
+                }
+
+                loadEmployees();
+
+            } catch (err) {
+                showToast("Server error ❌", "error");
+            }
+
+            closeModal();
+        }
+        let editId = null;
+
+        // OPEN EDIT MODAL
+        function openEditModal(id, name, email) {
+            editId = id;
+
+            document.getElementById("editName").value = name;
+            document.getElementById("editEmail").value = email;
+
+            document.getElementById("editModal").classList.remove("hidden");
+        }
+
+        // CLOSE
+        function closeEditModal() {
+            editId = null;
+            document.getElementById("editModal").classList.add("hidden");
+        }
+
+        // UPDATE FUNCTION
+        async function updateEmployee() {
+            const name = document.getElementById("editName").value;
+            const email = document.getElementById("editEmail").value;
+
+            try {
+                const res = await fetch(`http://localhost:3000/update/${editId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ name, email })
+                });
+
+                const msg = await res.text();
+
+                if (res.ok) {
+                    showToast("Updated successfully ✏️", "success");
+                } else {
+                    showToast(msg || "Update failed ❌", "error");
+                }
+
+                loadEmployees();
+                closeEditModal();
+
+            } catch (err) {
+                showToast("Server error ❌", "error");
+            }
+        }
+    </script>
+
+    </body>
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-box">
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this employee?</p>
+
+            <div class="modal-actions">
+                <button onclick="confirmDelete()" class="btn danger">Yes, Delete</button>
+                <button onclick="closeModal()" class="btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    </html>
